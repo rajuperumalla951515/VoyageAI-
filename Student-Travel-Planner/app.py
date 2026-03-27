@@ -8,6 +8,7 @@ from PIL import Image
 import pandas as pd
 import matplotlib.pyplot as plt
 import random
+import re
 
 
 # Configure Gemini
@@ -25,9 +26,115 @@ if 'travel_profile' not in st.session_state:
         'restrictions': 'Avoid night travel\nVegetarian food preferred'
     }
 
+# Function to get results from local CSV when API fails
+def get_csv_fallback_response(query):
+    try:
+        # Load CSV
+        if not os.path.exists("places.csv"):
+            return "Curated recommendations are currently being updated. Please check back in a few moments."
+        
+        df = pd.read_csv("places.csv")
+        query_str = str(query).lower()
+
+        # Day Detection (Max 10 days, Default 3)
+        num_days = 3
+        day_match = re.search(r'(\d+)\s*day', query_str)
+        if day_match:
+            num_days = int(min(int(day_match.group(1)), 10))
+        
+        # Get profile context
+        profile = st.session_state.get('travel_profile', {})
+        pref_states_raw = profile.get('preferred_states', '').split('\n')
+        pref_states = [s.strip() for s in pref_states_raw if s]
+        
+        if not pref_states:
+             # Fallback to common states if none selected
+             pref_states = ["Delhi", "Maharashtra", "Karnataka", "Telangana", "Tamil Nadu", "Kerala"]
+
+        # Filter by keywords in query to narrow down type/city interest
+        keywords = [word for word in query_str.split() if len(word) > 3]
+        
+        # Format the response
+        response = f"### 🌟 Your Handpicked {num_days}-Day Student Journey\n"
+        response += "I've carefully curated this itinerary to cover your preferred states, focusing on high-value educational and cultural landmarks. This plan ensures a balanced exploration of each region.\n\n"
+        
+        # Calculate days per state
+        num_states = len(pref_states)
+        days_per_state = max(1, num_days // num_states)
+        extra_days = num_days % num_states
+        
+        current_day = 1
+        for i, state in enumerate(pref_states):
+            if int(current_day) > int(num_days):
+                break
+                
+            # Allocate extra days to the first few states
+            actual_days_for_this_state = days_per_state + (1 if i < extra_days else 0)
+            
+            response += f"--- \n## 🏛️ Region Tour: {state}\n"
+            response += f"Exploring the unique heritage and local student vibes of **{state}**.\n\n"
+            
+            # Filter places for this state
+            state_df = df[df['State'].str.contains(state, case=False, na=False)]
+            
+            if keywords:
+                 # Try to match keywords within the state
+                 match_state = state_df[state_df.apply(lambda row: any(k in str(row['Name']).lower() or 
+                                                                    k in str(row['City']).lower() or 
+                                                                    k in str(row['Type']).lower() for k in keywords), axis=1)]
+                 if not match_state.empty:
+                     state_df = match_state
+            
+            # Pick places for the allocated days (2 per day)
+            places_needed = actual_days_for_this_state * 2
+            state_places = state_df.sample(min(len(state_df), places_needed), random_state=42).to_dict('records')
+            random.shuffle(state_places)
+
+            for d in range(actual_days_for_this_state):
+                if int(current_day) > int(num_days):
+                    break
+                    
+                response += f"### 📅 Day {current_day}\n"
+                
+                day_spots = state_places[d*2 : (d+1)*2]
+                if not day_spots:
+                    response += f"Take some time to explore the local student hubs and street food markets in {state}.\n\n"
+                else:
+                    for spot in day_spots:
+                        response += f"#### 📍 {spot['Name']}\n"
+                        response += f"**{spot['City']}, {spot['State']}** ({spot['Type']})\n\n"
+                        
+                        table = "| Detail | Information |\n| :--- | :--- |\n"
+                        table += f"| ⭐ **Rating** | {spot['Google review rating']}/5 ({spot['Number of google review in lakhs']}L Reviews) |\n"
+                        table += f"| ⏱️ **Duration** | {spot['time needed to visit in hrs']} Hours needed |\n"
+                        table += f"| 💰 **Entry Fee** | ₹{spot['Entrance Fee in INR']} |\n"
+                        table += f"| 📅 **Weekly Off** | {spot['Weekly Off']} |\n"
+                        table += f"| 📸 **DSLR/Cam** | {'Allowed' if spot['DSLR Allowed'] == 'Yes' else 'Restricted'} |\n"
+                        table += f"| 🏛️ **Heritage** | Established in {spot['Establishment Year']} |\n"
+                        table += f"| ✈️ **Airport** | {spot['Airport with 50km Radius']} (Within 50km) |\n"
+                        
+                        response += table + "\n"
+                        response += f"**📜 Significance:** {spot['Significance']}\n"
+                        response += f"**✨ Best Time:** {spot['Best Time to visit']}\n\n"
+                
+                current_day += 1
+
+        state_names = ""
+        for s in pref_states[:3]:
+            state_names += s + ", "
+        state_names = state_names.rstrip(", ")
+        response += f"- **State Transitions:** When moving between {state_names}{'...' if len(pref_states) > 3 else ''}, prefer night trains to save on stay costs.\n"
+        response += "- **Student Perks:** Many of these sites offer discounts of up to 50% for valid student ID holders.\n"
+        response += "- **Food Tip:** Don't miss the local university canteens in these states for the most authentic and budget-friendly food.\n"
+        
+        return response
+
+    except Exception as e:
+        return f"Error using local database fallback: {str(e)}"
+
 # Function to get Gemini response 
 def get_gemini_response(input_prompt, image_data=None):
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash') 
 
     content = [input_prompt]
 
@@ -36,9 +143,19 @@ def get_gemini_response(input_prompt, image_data=None):
 
     try:
         response = model.generate_content(content)
-        return response.text
+        # Check if response has text (sometimes safety filters block it)
+        try:
+            return response.text
+        except:
+            return get_csv_fallback_response(input_prompt)
+            
     except Exception as e:
-        return f"Error generating response: {str(e)}"
+        # If it's a quota or connection error, use fallback
+        error_msg = str(e).lower()
+        if "quota" in error_msg or "limit" in error_msg or "429" in error_msg or "finish_reason" in error_msg or "api_key" in error_msg:
+             return get_csv_fallback_response(input_prompt)
+        
+        return get_csv_fallback_response(input_prompt) # General fallback for any error as requested
 
 def input_image_setup(uploaded_file):
     if uploaded_file is not None:
