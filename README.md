@@ -5,17 +5,17 @@ The **AI Student Travel Planner** is a specialized web application designed for 
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
-*   **🗺️ AI Itinerary Generator**: Custom day-wise plans focusing on educational and cultural landmarks across all Indian states.
-*   **💰 Budget Optimizer**: Real-time cost estimates for transport, accommodation, and food tailored to student budgets.
-*   **🛡️ Risk & Safety Analysis**: Predictive safety insights and emergency precautions for every trip.
-*   **🤖 AI Travel Assistant**: A context-aware chatbot for real-time travel advice and local insights.
-*   **🎓 Student Profile System**: Personalized travel goals, budget ranges, and preferences managed via an intuitive sidebar.
+*   ** AI Itinerary Generator**: Custom day-wise plans focusing on educational and cultural landmarks across all Indian states.
+*   ** Budget Optimizer**: Real-time cost estimates for transport, accommodation, and food tailored to student budgets.
+*   ** Risk & Safety Analysis**: Predictive safety insights and emergency precautions for every trip.
+*   ** AI Travel Assistant**: A context-aware chatbot for real-time travel advice and local insights.
+*   ** Student Profile System**: Personalized travel goals, budget ranges, and preferences managed via an intuitive sidebar.
 
 ---
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 | Component | Technology |
 | :--- | :--- |
@@ -26,7 +26,7 @@ The **AI Student Travel Planner** is a specialized web application designed for 
 
 ---
 
-## 🏗️ Getting Started
+##  Getting Started
 
 1.  **Clone the Repository**:
     ```bash
@@ -45,7 +45,7 @@ The **AI Student Travel Planner** is a specialized web application designed for 
 
 ---
 
-## 👨‍💻 Developed By
+##  Developed By
 
 **Raju Perumalla**
 *B.Tech (CSE) | Specialized in AI & Machine Learning*
